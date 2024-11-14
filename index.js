@@ -15,23 +15,10 @@ mongoose.connect(
     {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      // useCreateIndex: true,
       dbName: process.env.MONGO_DB_NAME
     });
 
-// ----- Schemas ------
-const exerciseSchema = new mongoose.Schema({
-  username: String,
-  description: String,
-  duration: Number,
-  date: String
-});
-
 const userSchema = new mongoose.Schema({
-  username: String
-});
-
-const logSchema = new mongoose.Schema({
   username: String,
   count: Number,
   log: [{
@@ -41,11 +28,26 @@ const logSchema = new mongoose.Schema({
   }]
 });
 
-// ----- Models -----
-let Exercise = mongoose.model('Exercise', exerciseSchema);
 let User = mongoose.model('User', userSchema);
-let Log = mongoose.model('Log', logSchema);
 
+// ----- DB Interface -----
+// Per endpoint?
+// -- users --
+// Create Username
+// Find users
+
+// -- exercise --
+// Find exercise from user
+
+// -- logs --
+// Find logs from user
+
+// ------ API Endpoints -----
+// Post '/api/users'
+    // Return object with `username` and `_id`
+// Get '/api/users' returns list of all users in an array of objects containing `username` and `_id`
+// Post '/api/users/:id/exercises'
+// GET '/api/users/:id/logs'
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
