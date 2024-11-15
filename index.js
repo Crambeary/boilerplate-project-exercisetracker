@@ -12,32 +12,6 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
-// Helper functions
-const omitKeys = (arr, keysToOmit) => {
-    return arr.map(obj => // map out so the array gets each entry processed in the CB
-    Object.fromEntries( // fromEntries takes a 2D array and creates an Object
-        // Being in the arr.map will result in an array
-        Object.entries(obj) // Takes an object and creates the 2D array
-            .filter( // CB that returns bool on what to keep
-                ([k]) => // key to compare
-                    !keysToOmit.includes(k)) // array matches what we want to remove 'false' in the filter
-        )
-    );
-}
-
-const selectKeys = (arr, keysToOmit) => {
-    return arr.map(obj => // map out so the array gets each entry processed in the CB
-        Object.fromEntries( // fromEntries takes a 2D array and creates an Object
-            // Being in the arr.map will result in an array
-            Object.entries(obj) // Takes an object and creates the 2D array
-                .filter( // CB that returns bool on what to keep
-                    ([k]) => {// key to compare
-                        return keysToOmit.includes(k); // array matches what we want to keep 'true' in the filter
-                    })
-        )
-    );
-}
-
 // MongoDB - Mongoose
 mongoose.connect(
     process.env.MONGO_URI,
@@ -78,10 +52,8 @@ const createUser = (username, done) => {
 }
 // Find users
 const findUsers = (done) => {
-    User.find().lean().exec((err, data) => { // lean turns the results into a js object
-        console.log('data', data);
-        const filteredUsers = selectKeys(data,['username', '_id']);
-        done(err, filteredUsers);
+    User.find().select('username _id').exec((err, data) => { // lean turns the results into a js object
+        done(err, data);
     });
 }
 
@@ -106,6 +78,15 @@ const findUserLogs = (userId, done) => {
     });
 }
 
+const findUserLogsFiltered = (userId, filter, done) => {
+    const limitCount = parseInt(filter.limit);
+    User.find({ _id: userId },
+        {
+            'log': { $slice: limitCount }
+        }).select('-__v').exec((err, data) => {
+       done(err, data);
+    });
+}
 
 // ------ API Endpoints -----
 app.use(bodyParser.urlencoded({extended: false}));
@@ -158,12 +139,19 @@ app.get('/api/users/:id/logs', (req, res) => {
             res.json(data[0]);
         });
     } else {
-        // from, to, limit queries
+        // GET /api/users/:_id/logs?[from][&to][&limit]
+        // from, to = dates (yyyy-mm-dd); limit = number
+        // build into object and send to db query? Can it handle ignoring a change in an empty from, to, limit?
+        const query = {
+            from: req.query.from,
+            to: req.query.to,
+            limit: req.query.limit
+        }
+        findUserLogsFiltered(req.params.id, query, (err, data) => {
+            res.json(data);
+        })
     }
 });
-// 16. You can add from, to and limit parameters
-// TODO: Research GET parameters
-// GET /api/users/:_id/logs?[from][&to][&limit]
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
