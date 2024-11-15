@@ -11,6 +11,33 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+// Helper functions
+const omitKeys = (arr, keysToOmit) => {
+    return arr.map(obj => // map out so the array gets each entry processed in the CB
+    Object.fromEntries( // fromEntries takes a 2D array and creates an Object
+        // Being in the arr.map will result in an array
+        Object.entries(obj) // Takes an object and creates the 2D array
+            .filter( // CB that returns bool on what to keep
+                ([k]) => // key to compare
+                    !keysToOmit.includes(k)) // array matches what we want to remove 'false' in the filter
+        )
+    );
+}
+
+const selectKeys = (arr, keysToOmit) => {
+    return arr.map(obj => // map out so the array gets each entry processed in the CB
+        Object.fromEntries( // fromEntries takes a 2D array and creates an Object
+            // Being in the arr.map will result in an array
+            Object.entries(obj) // Takes an object and creates the 2D array
+                .filter( // CB that returns bool on what to keep
+                    ([k]) => {// key to compare
+                        return keysToOmit.includes(k); // array matches what we want to keep 'true' in the filter
+                    })
+        )
+    );
+}
+
+// MongoDB - Mongoose
 mongoose.connect(
     process.env.MONGO_URI,
     {
@@ -49,9 +76,9 @@ const createUser = (username, done) => {
 }
 // Find users
 const findUsers = (done) => {
-    User.find((err, data) => {
+    User.find().lean().exec((err, data) => { // lean turns the results into a js object
         console.log('data', data);
-        let filteredUsers = data.map(({count, log, ...rest}) => rest);
+        const filteredUsers = selectKeys(data,['username', '_id']);
         done(err, filteredUsers);
     });
 }
