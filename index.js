@@ -50,9 +50,10 @@ const userSchema = new mongoose.Schema({
   username: String,
   count: Number,
   log: [{
-    description: String,
-    duration: Number,
-    date: String
+      _id: false,
+      description: String,
+      duration: Number,
+      date: String
   }]
 });
 
@@ -84,8 +85,17 @@ const findUsers = (done) => {
 }
 
 // -- exercise --
-// Find exercise from user
 // Create exercise appended in user log and increment count of user
+const appendExercise = (userId, form, done) => {
+    const appendingData = {
+        "$inc": { "count": 1 } ,
+        "$push": { "log": form }
+    }
+    User.findByIdAndUpdate({ "_id": userId }, appendingData, { new: true }, (err, data) => {
+        console.log(err);
+        done(err, data);
+    })
+}
 
 // -- logs --
 // Find logs from user and return the full object
@@ -112,6 +122,17 @@ app.route('/api/users/')
 });
 
 // Post '/api/users/:id/exercises'
+app.post('/api/users/:id/exercises', (req, res) => {
+   let form = {
+       "description": req.body.description,
+       "duration": req.body.duration,
+       "date": new Date(req.body.date).toDateString() || new Date().toDateString(),
+   }
+   console.log(form);
+   appendExercise(req.params.id, form, (err, data) => {
+       res.json(data);
+   });
+});
 // GET '/api/users/:id/logs'
     // Show the full object json
     // 16. You can add from, to and limit parameters
