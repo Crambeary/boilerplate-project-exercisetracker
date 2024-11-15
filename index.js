@@ -3,6 +3,7 @@ const app = express()
 const cors = require('cors')
 require('dotenv').config()
 const mongoose = require('mongoose')
+const ObjectId = mongoose.Types.ObjectId;
 let bodyParser = require('body-parser');
 const {parse} = require("dotenv");
 
@@ -28,7 +29,7 @@ const userSchema = new mongoose.Schema({
       _id: false,
       description: String,
       duration: Number,
-      date: String
+      date: Date
   }]
 });
 
@@ -61,6 +62,7 @@ const findUsers = (done) => {
 // Create exercise appended in user log and increment count of user
 const appendExercise = (userId, form, done) => {
     const appendingData = {
+        // TODO: remove count and change it to be a calculated value
         "$inc": { "count": 1 } ,
         "$push": { "log": form }
     }
@@ -73,19 +75,67 @@ const appendExercise = (userId, form, done) => {
 // -- logs --
 // Find logs from user and return the full object
 const findUserLogs = (userId, done) => {
-    User.find({ _id: userId }).select('-__v').exec((err, data) => { // lean turns the results into a js object
-        done(err, data);
+    // TODO: Change find to aggregate and project log.date into new Date(date).toDateString()?
+    // TODO: Calculate count based off the amount of logs being shown
+    User.find({ _id: userId })
+        .select('-__v')
+        .exec((err, data) => {
+            done(err, data);
     });
 }
 
 const findUserLogsFiltered = (userId, filter, done) => {
-    const limitCount = parseInt(filter.limit);
-    User.find({ _id: userId },
-        {
-            'log': { $slice: limitCount }
-        }).select('-__v').exec((err, data) => {
-       done(err, data);
-    });
+    // TODO: Calculate count based off the amount of logs being shown
+    const limitItems = filter.limit ? parseInt(filter.limit) : 2147483647; // Maximum 32 bit int.
+    const pipeline = [
+            { $match: { _id: ObjectId(`${userId}`) }},
+            {
+                $project: {
+                    username: 1,
+                    count: 1,
+                    log: {
+                        $slice: [{
+                            $filter: {
+                                input: "$log",
+                                as: "logEntry",
+                                cond: {
+                                    $and: [
+                                        {$gte: ["$$logEntry.date", new Date(filter.from)]},
+                                        {$lte: ["$$logEntry.date", new Date(filter.to)]}
+                                    ]
+                                }
+                            }
+                        },
+                            limitItems
+                        ],
+                    }
+                }
+            },
+        ]
+
+    User.aggregate(
+        pipeline,
+        (err, data) => {
+        if (err) {
+            console.error("Aggregation error:", err);
+            return done(err, null);
+        }
+        done(null, data);
+        })
+    // User.find({
+    //         _id: userId,
+    //         date: {
+    //             $gte: filter.from ? new Date(filter.from) : null,
+    //             $lte: filter.to ? new Date(filter.to) : null
+    //         }
+    //     },
+    //     {
+    //         'log': {
+    //             $slice: limitCount ,
+    //         },
+    //     }).select('-__v').exec((err, data) => {
+    //    done(err, data);
+    // });
 }
 
 // ------ API Endpoints -----
@@ -111,9 +161,9 @@ app.route('/api/users/')
 app.post('/api/users/:id/exercises', (req, res) => {
     let date;
     if (req.body.date) {
-        date = new Date(req.body.date).toDateString();
+        date = new Date(req.body.date);
     } else {
-        date = new Date().toDateString();
+        date = new Date();
     }
    let form = {
        "description": req.body.description,
@@ -126,7 +176,7 @@ app.post('/api/users/:id/exercises', (req, res) => {
            username: data.username,
            description: form.description,
            duration: parseInt(form.duration),
-           date: form.date,
+           date: new Date(form.date).toDateString(),
            _id: data._id,
        });
    });
@@ -148,7 +198,8 @@ app.get('/api/users/:id/logs', (req, res) => {
             limit: req.query.limit
         }
         findUserLogsFiltered(req.params.id, query, (err, data) => {
-            res.json(data);
+            if (err) { console.log(err); }
+            res.json(data[0]);
         })
     }
 });
