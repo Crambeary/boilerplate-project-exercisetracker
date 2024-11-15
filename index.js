@@ -4,6 +4,7 @@ const cors = require('cors')
 require('dotenv').config()
 const mongoose = require('mongoose')
 let bodyParser = require('body-parser');
+const {parse} = require("dotenv");
 
 app.use(cors())
 app.use(express.static('public'))
@@ -99,7 +100,11 @@ const appendExercise = (userId, form, done) => {
 
 // -- logs --
 // Find logs from user and return the full object
-
+const findUserLogs = (userId, done) => {
+    User.find({ _id: userId }).select('-__v').exec((err, data) => { // lean turns the results into a js object
+        done(err, data);
+    });
+}
 
 
 // ------ API Endpoints -----
@@ -123,21 +128,42 @@ app.route('/api/users/')
 
 // Post '/api/users/:id/exercises'
 app.post('/api/users/:id/exercises', (req, res) => {
+    let date;
+    if (req.body.date) {
+        date = new Date(req.body.date).toDateString();
+    } else {
+        date = new Date().toDateString();
+    }
    let form = {
        "description": req.body.description,
        "duration": req.body.duration,
-       "date": new Date(req.body.date).toDateString() || new Date().toDateString(),
+       "date": date,
    }
    console.log(form);
    appendExercise(req.params.id, form, (err, data) => {
-       res.json(data);
+       res.send({
+           username: data.username,
+           description: form.description,
+           duration: parseInt(form.duration),
+           date: form.date,
+           _id: data._id,
+       });
    });
 });
 // GET '/api/users/:id/logs'
-    // Show the full object json
-    // 16. You can add from, to and limit parameters
-    // TODO: Research GET parameters
-    // GET /api/users/:_id/logs?[from][&to][&limit]
+app.get('/api/users/:id/logs', (req, res) => {
+    if (Object.keys(req.query).length === 0) {
+        // Show the full object json
+        findUserLogs(req.params.id, (err, data) => {
+            res.json(data[0]);
+        });
+    } else {
+        // from, to, limit queries
+    }
+});
+// 16. You can add from, to and limit parameters
+// TODO: Research GET parameters
+// GET /api/users/:_id/logs?[from][&to][&limit]
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port)
