@@ -106,6 +106,9 @@ const findUserLogs = (userId, done) => {
 
 const findUserLogsFiltered = (userId, filter, done) => {
     const limitItems = filter.limit ? parseInt(filter.limit) : 2147483647; // Maximum 32 bit int.
+    // Setting defaults to extremely high values that shouldn't be used
+    const dateFrom = filter.from ? new Date(filter.from) : new Date('1970-01-02').toDateString();
+    const dateTo = filter.to ? new Date(filter.to) : new Date('3000-01-02');
     const pipeline = [
             { $match: { _id: ObjectId(`${userId}`) }},
             {
@@ -119,8 +122,8 @@ const findUserLogsFiltered = (userId, filter, done) => {
                                 as: "logEntry",
                                 cond: {
                                     $and: [
-                                        {$gte: ["$$logEntry.date", new Date(filter.from)]},
-                                        {$lte: ["$$logEntry.date", new Date(filter.to)]}
+                                        {$gte: ["$$logEntry.date", dateFrom]},
+                                        {$lte: ["$$logEntry.date", dateTo]}
                                     ]
                                 }
                             }
