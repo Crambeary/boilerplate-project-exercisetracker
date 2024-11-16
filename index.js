@@ -72,7 +72,7 @@ const createUser = (username, done) => {
 // Find users
 const findUsers = (done) => {
     User.find().select('username _id').exec((err, data) => { // lean turns the results into a js object
-        done(err, data.toJSON());
+        done(err, data);
     });
 }
 
