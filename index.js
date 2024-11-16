@@ -5,7 +5,6 @@ require('dotenv').config()
 const mongoose = require('mongoose')
 const ObjectId = mongoose.Types.ObjectId;
 let bodyParser = require('body-parser');
-const {parse} = require("dotenv");
 
 app.use(cors())
 app.use(express.static('public'))
@@ -33,6 +32,18 @@ const userSchema = new mongoose.Schema({
   }]
 });
 
+userSchema.set('toJSON', {
+    transform: (doc, ret) => {
+        if (ret.log) {
+            ret.log = ret.log.map((entry) => ({
+                ...entry,
+                date: entry.date.toDateString()
+            }));
+        }
+        return ret;
+    }
+});
+
 let User = mongoose.model('User', userSchema);
 
 // ----- DB Interface -----
@@ -47,14 +58,14 @@ const createUser = (username, done) => {
             "log": []
         },
         function (err, data) {
-            done(err, data);
+            done(err, data.toJSON());
         }
     );
 }
 // Find users
 const findUsers = (done) => {
     User.find().select('username _id').exec((err, data) => { // lean turns the results into a js object
-        done(err, data);
+        done(err, data.toJSON());
     });
 }
 
@@ -68,7 +79,7 @@ const appendExercise = (userId, form, done) => {
     }
     User.findByIdAndUpdate({ "_id": userId }, appendingData, { new: true }, (err, data) => {
         console.log(err);
-        done(err, data);
+        done(err, data.toJSON());
     })
 }
 
@@ -80,7 +91,7 @@ const findUserLogs = (userId, done) => {
     User.find({ _id: userId })
         .select('-__v')
         .exec((err, data) => {
-            done(err, data);
+            done(err, data.toJSON());
     });
 }
 
@@ -114,28 +125,21 @@ const findUserLogsFiltered = (userId, filter, done) => {
         ]
 
     User.aggregate(
-        pipeline,
+        pipeline)
+        .exec(
         (err, data) => {
-        if (err) {
-            console.error("Aggregation error:", err);
-            return done(err, null);
-        }
-        done(null, data);
-        })
-    // User.find({
-    //         _id: userId,
-    //         date: {
-    //             $gte: filter.from ? new Date(filter.from) : null,
-    //             $lte: filter.to ? new Date(filter.to) : null
-    //         }
-    //     },
-    //     {
-    //         'log': {
-    //             $slice: limitCount ,
-    //         },
-    //     }).select('-__v').exec((err, data) => {
-    //    done(err, data);
-    // });
+            if (err) {
+                console.error("Aggregation error:", err);
+                return done(err, null);
+            }
+            const hydratedData = User.hydrate(data[0])
+            console.log('hydrated');
+            console.log(hydratedData);
+            console.log("Instance of Mongoose Document:", hydratedData instanceof mongoose.Document);
+            const json = hydratedData.toJSON();
+            console.log(json);
+            done(err, json)
+        });
 }
 
 // ------ API Endpoints -----
@@ -199,7 +203,7 @@ app.get('/api/users/:id/logs', (req, res) => {
         }
         findUserLogsFiltered(req.params.id, query, (err, data) => {
             if (err) { console.log(err); }
-            res.json(data[0]);
+            res.json(data);
         })
     }
 });
