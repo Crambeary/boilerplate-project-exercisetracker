@@ -23,7 +23,7 @@ mongoose.connect(
 
 const userSchema = new mongoose.Schema({
   username: String,
-  count: Number,
+  // count: Number,
   log: [{
       _id: false,
       description: String,
@@ -54,7 +54,7 @@ const createUser = (username, done) => {
     User.create(
         {
             "username": username,
-            "count": 0,
+            // "count": 0,
             "log": []
         },
         function (err, data) {
@@ -73,8 +73,7 @@ const findUsers = (done) => {
 // Create exercise appended in user log and increment count of user
 const appendExercise = (userId, form, done) => {
     const appendingData = {
-        // TODO: remove count and change it to be a calculated value
-        "$inc": { "count": 1 } ,
+        // "$inc": { "count": 1 } ,
         "$push": { "log": form }
     }
     User.findByIdAndUpdate({ "_id": userId }, appendingData, { new: true }, (err, data) => {
@@ -86,17 +85,20 @@ const appendExercise = (userId, form, done) => {
 // -- logs --
 // Find logs from user and return the full object
 const findUserLogs = (userId, done) => {
-    // TODO: Change find to aggregate and project log.date into new Date(date).toDateString()?
-    // TODO: Calculate count based off the amount of logs being shown
     User.find({ _id: userId })
         .select('-__v')
         .exec((err, data) => {
-            done(err, data.toJSON());
+            if (err) {
+                console.log("Mongo error:", err);
+                return done(err, null);
+            }
+            const hydratedData = User.hydrate(data);
+            const json = hydratedData.toJSON();
+            done(err, json);
     });
 }
 
 const findUserLogsFiltered = (userId, filter, done) => {
-    // TODO: Calculate count based off the amount of logs being shown
     const limitItems = filter.limit ? parseInt(filter.limit) : 2147483647; // Maximum 32 bit int.
     const pipeline = [
             { $match: { _id: ObjectId(`${userId}`) }},
@@ -132,13 +134,9 @@ const findUserLogsFiltered = (userId, filter, done) => {
                 console.error("Aggregation error:", err);
                 return done(err, null);
             }
-            const hydratedData = User.hydrate(data[0])
-            console.log('hydrated');
-            console.log(hydratedData);
-            console.log("Instance of Mongoose Document:", hydratedData instanceof mongoose.Document);
+            const hydratedData = User.hydrate(data[0]);
             const json = hydratedData.toJSON();
-            console.log(json);
-            done(err, json)
+            done(err, json);
         });
 }
 
@@ -186,6 +184,7 @@ app.post('/api/users/:id/exercises', (req, res) => {
    });
 });
 // GET '/api/users/:id/logs'
+// TODO: Calculate count based off the amount of logs being shown
 app.get('/api/users/:id/logs', (req, res) => {
     if (Object.keys(req.query).length === 0) {
         // Show the full object json
