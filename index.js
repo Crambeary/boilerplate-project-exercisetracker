@@ -12,6 +12,15 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html')
 });
 
+
+// Helper functions
+const appendCount = (data) => {
+    // input is json format
+    // read as object
+    data["count"] = data.log.length;
+    return data; // json
+}
+
 // MongoDB - Mongoose
 mongoose.connect(
     process.env.MONGO_URI,
@@ -23,7 +32,6 @@ mongoose.connect(
 
 const userSchema = new mongoose.Schema({
   username: String,
-  // count: Number,
   log: [{
       _id: false,
       description: String,
@@ -54,7 +62,6 @@ const createUser = (username, done) => {
     User.create(
         {
             "username": username,
-            // "count": 0,
             "log": []
         },
         function (err, data) {
@@ -73,7 +80,6 @@ const findUsers = (done) => {
 // Create exercise appended in user log and increment count of user
 const appendExercise = (userId, form, done) => {
     const appendingData = {
-        // "$inc": { "count": 1 } ,
         "$push": { "log": form }
     }
     User.findByIdAndUpdate({ "_id": userId }, appendingData, { new: true }, (err, data) => {
@@ -184,12 +190,11 @@ app.post('/api/users/:id/exercises', (req, res) => {
    });
 });
 // GET '/api/users/:id/logs'
-// TODO: Calculate count based off the amount of logs being shown
 app.get('/api/users/:id/logs', (req, res) => {
     if (Object.keys(req.query).length === 0) {
         // Show the full object json
         findUserLogs(req.params.id, (err, data) => {
-            res.json(data[0]);
+            res.json(appendCount(data[0]));
         });
     } else {
         // GET /api/users/:_id/logs?[from][&to][&limit]
@@ -202,7 +207,7 @@ app.get('/api/users/:id/logs', (req, res) => {
         }
         findUserLogsFiltered(req.params.id, query, (err, data) => {
             if (err) { console.log(err); }
-            res.json(data);
+            res.json(appendCount(data));
         })
     }
 });
